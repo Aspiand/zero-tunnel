@@ -23,17 +23,24 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		if cfg.CloudflareAPIToken == "" || cfg.CloudflareAccountID == "" || cfg.CloudflareTunnelID == "" {
-			slog.Error("missing required configuration: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CLOUDFLARE_TUNNEL_ID must be set")
-			os.Exit(1)
-		}
-
 		w, err := watcher.New(cfg.DefaultDomain)
 		if err != nil {
 			return err
 		}
 
 		p := provider.New(cfg.CloudflareAPIToken, cfg.CloudflareAccountID, cfg.CloudflareTunnelID)
+
+		// Lookup tunnel ID by name if provided
+		if cfg.CloudflareTunnelName != "" {
+			tunnelID, err := p.LookupTunnelID(context.Background(), cfg.CloudflareTunnelName)
+			if err != nil {
+				slog.Error("failed to lookup tunnel ID", "name", cfg.CloudflareTunnelName, "error", err)
+				os.Exit(1)
+			}
+			slog.Info("resolved tunnel ID", "name", cfg.CloudflareTunnelName, "id", tunnelID)
+			p.SetTunnelID(tunnelID)
+		}
+
 		eng := engine.New(w, p, cfg.ReconciliationInterval)
 
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

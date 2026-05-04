@@ -33,6 +33,30 @@ func New(apiToken, accountID, tunnelID string) *CloudflareProvider {
 	}
 }
 
+func (p *CloudflareProvider) LookupTunnelID(ctx context.Context, name string) (string, error) {
+	slog.Info("looking up tunnel ID by name", "name", name)
+	tunnels, err := p.client.ZeroTrust.Tunnels.List(ctx, zero_trust.TunnelListParams{
+		AccountID: cloudflare.F(p.accountID),
+		Name:      cloudflare.F(name),
+		IsDeleted: cloudflare.F(false),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list tunnels: %w", err)
+	}
+
+	for _, t := range tunnels.Result {
+		if t.Name == name {
+			return t.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("tunnel with name %q not found", name)
+}
+
+func (p *CloudflareProvider) SetTunnelID(id string) {
+	p.tunnelID = id
+}
+
 func (p *CloudflareProvider) Sync(ctx context.Context, routes []models.Route, managedDomains []string) error {
 	slog.Info("syncing state with cloudflare", "routes", len(routes), "managed_zones", len(managedDomains))
 

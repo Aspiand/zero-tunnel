@@ -37,7 +37,8 @@ Configurable via environment variables or a config file:
     - **Zone / DNS**: `Edit`
     - **Zone / Zone**: `Read`
 - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare Account ID.
-- `CLOUDFLARE_TUNNEL_ID`: The UUID of the existing remotely managed tunnel.
+- `CLOUDFLARE_TUNNEL_ID`: The UUID of the existing tunnel (mutually exclusive with `NAME`).
+- `CLOUDFLARE_TUNNEL_NAME`: The Name of the existing tunnel (mutually exclusive with `ID`).
 - `ZERO_TUNNEL_DEFAULT_DOMAIN`: (Optional) Default domain if not specified in labels.
 - `ZERO_TUNNEL_INTERVAL`: (Optional) Reconciliation interval (default: 300s).
 
@@ -91,8 +92,7 @@ The tool will maintain the ingress list:
 2. A mandatory catch-all rule at the end (`http_status:404`).
 
 ## 5. Future Work
-- **Lookup Tunnel ID by Name**: Allow users to provide a tunnel name instead of a UUID, with the tool performing an automatic lookup at startup.
-- **Automated Tunnel Provisioning**: Automatically create a new tunnel if `CLOUDFLARE_TUNNEL_ID` is not provided, including credential management.
+- **Automated Tunnel Provisioning**: Automatically create a new tunnel if neither ID nor Name is provided.
 - **Local Configuration Provider**: Support for writing to `config.yaml` for locally managed tunnels.
 - **Multiple Tunnels**: Ability to distribute routes across multiple Cloudflare Tunnels based on labels.
 

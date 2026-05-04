@@ -27,7 +27,8 @@ zero-tunnel is an automation tool designed to manage Cloudflare Tunnel routes dy
 |----------------------|-------------|
 | CLOUDFLARE_API_TOKEN | Your Cloudflare API Token. |
 | CLOUDFLARE_ACCOUNT_ID | Your Cloudflare Account ID. |
-| CLOUDFLARE_TUNNEL_ID | The UUID of your existing Tunnel. |
+| CLOUDFLARE_TUNNEL_ID | The UUID of your existing Tunnel (mutually exclusive with NAME). |
+| CLOUDFLARE_TUNNEL_NAME | The Name of your existing Tunnel (mutually exclusive with ID). |
 | ZERO_TUNNEL_DEFAULT_DOMAIN | (Optional) Default domain to use if `zero-tunnel.domain` label is missing. |
 | ZERO_TUNNEL_INTERVAL | (Optional) Reconciliation interval (e.g., `300s`). |
 
@@ -49,7 +50,8 @@ services:
     environment:
       - CLOUDFLARE_API_TOKEN=your_token
       - CLOUDFLARE_ACCOUNT_ID=your_account_id
-      - CLOUDFLARE_TUNNEL_ID=your_tunnel_id
+      # Use either TUNNEL_ID or TUNNEL_NAME
+      - CLOUDFLARE_TUNNEL_NAME=my-tunnel 
       - ZERO_TUNNEL_DEFAULT_DOMAIN=example.com
 ```
 

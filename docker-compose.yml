@@ -1,7 +1,8 @@
 services:
   zero-tunnel:
-    build: .
     container_name: zero-tunnel
+    image: ghcr.io/aspiand/zero-tunnel
+    build: .
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
