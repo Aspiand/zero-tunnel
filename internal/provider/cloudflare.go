@@ -24,8 +24,9 @@ type CloudflareProvider struct {
 	tunnelID  string
 }
 
-func New(apiToken, accountID, tunnelID string) *CloudflareProvider {
-	client := cloudflare.NewClient(option.WithAPIToken(apiToken))
+func New(apiToken, accountID, tunnelID string, opts ...option.RequestOption) *CloudflareProvider {
+	allOpts := append([]option.RequestOption{option.WithAPIToken(apiToken)}, opts...)
+	client := cloudflare.NewClient(allOpts...)
 	return &CloudflareProvider{
 		client:    client,
 		accountID: accountID,
