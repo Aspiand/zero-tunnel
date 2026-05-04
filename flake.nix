@@ -1,5 +1,5 @@
 {
-  description = "My Project";
+  description = "Zero-config Cloudflare Tunnel automation for Docker";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
@@ -29,9 +29,7 @@
             nodejs
           ];
 
-          shellHooks = ''
-            export GIN_MODE=debug
-          '';
+          shellHooks = "";
         };
       }
     );

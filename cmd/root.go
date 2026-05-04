@@ -1,43 +1,51 @@
 package cmd
 
 import (
+	"context"
+	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/aspiand/zero-tunnel/internal/config"
+	"github.com/aspiand/zero-tunnel/internal/engine"
+	"github.com/aspiand/zero-tunnel/internal/provider"
+	"github.com/aspiand/zero-tunnel/internal/watcher"
 	"github.com/spf13/cobra"
 )
 
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "zero-tunnel",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Automated Cloudflare Tunnel routing for Docker",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+		if cfg.CloudflareAPIToken == "" || cfg.CloudflareAccountID == "" || cfg.CloudflareTunnelID == "" {
+			slog.Error("missing required configuration: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CLOUDFLARE_TUNNEL_ID must be set")
+			os.Exit(1)
+		}
+
+		w, err := watcher.New(cfg.DefaultDomain)
+		if err != nil {
+			return err
+		}
+
+		p := provider.New(cfg.CloudflareAPIToken, cfg.CloudflareAccountID, cfg.CloudflareTunnelID)
+		eng := engine.New(w, p, cfg.ReconciliationInterval)
+
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
+		return eng.Run(ctx)
+	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
+	if err := rootCmd.Execute(); err != nil {
+		slog.Error("execution failed", "error", err)
 		os.Exit(1)
 	}
-}
-
-func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.zero-tunnel.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

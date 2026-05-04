@@ -51,6 +51,7 @@ Configurable via environment variables or a config file:
 | `zero-tunnel.port` | Internal port of the container. | `8080` |
 | `zero-tunnel.scheme` | Protocol to use (`http`, `https`, `tcp`). | `http` |
 | `zero-tunnel.path` | (Optional) Path for the ingress rule. | `/api` |
+| `zero-tunnel.ephemeral` | (Optional) If `true`, DNS is deleted when container stops. Default: `true`. | `true` |
 
 ### 3.3 Path Matching
 The `zero-tunnel.path` field supports regex patterns as defined by Cloudflare Tunnel ingress rules:
@@ -58,6 +59,13 @@ The `zero-tunnel.path` field supports regex patterns as defined by Cloudflare Tu
 - **Match anywhere in path**: `blog` (matches `/blog`, `/archive/blog/post`, etc.)
 - **Match path prefix**: `^/api`
 - **Match files by extension**: `\.(jpg|png|css|js)$`
+
+### 3.4 Ephemeral DNS (Cleanup)
+`zero-tunnel` manages the lifecycle of DNS records it creates, following an ephemeral-by-default pattern:
+- **Default Behavior**: All managed routes are ephemeral. When a container stops or is removed, its associated DNS record is deleted.
+- **Identification**: Every DNS record created or updated by the tool includes the comment `managed-by:zero-tunnel`.
+- **Label Control**: Users can set `zero-tunnel.ephemeral=false` to keep the DNS record even if the container is offline.
+- **Automatic Removal**: During each synchronization cycle (Startup and Reconciliation), the tool identifies DNS records containing the `managed-by:zero-tunnel` comment that no longer have a corresponding active container (and are marked as ephemeral). These orphaned records are automatically deleted from Cloudflare.
 
 ## 4. Technical Implementation
 
@@ -83,6 +91,7 @@ The tool will maintain the ingress list:
 2. A mandatory catch-all rule at the end (`http_status:404`).
 
 ## 5. Future Work
+- **Lookup Tunnel ID by Name**: Allow users to provide a tunnel name instead of a UUID, with the tool performing an automatic lookup at startup.
 - **Automated Tunnel Provisioning**: Automatically create a new tunnel if `CLOUDFLARE_TUNNEL_ID` is not provided, including credential management.
 - **Local Configuration Provider**: Support for writing to `config.yaml` for locally managed tunnels.
 - **Multiple Tunnels**: Ability to distribute routes across multiple Cloudflare Tunnels based on labels.
