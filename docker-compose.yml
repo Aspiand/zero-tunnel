@@ -23,3 +23,7 @@ services:
       zero-tunnel.enable: true
       zero-tunnel.subdomain: nginx
       zero-tunnel.port: 80
+
+networks:
+  default:
+    name: zero-tunnel

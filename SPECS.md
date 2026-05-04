@@ -1,101 +1,150 @@
 # Specification: zero-tunnel
 
-`zero-tunnel` is an automation tool designed to manage Cloudflare Tunnel routes dynamically based on Docker container labels. It functions similarly to Watchtower, monitoring the Docker daemon for container lifecycle events and automatically updating Cloudflare Tunnel ingress rules and DNS records.
+**zero-tunnel** automates Cloudflare Tunnel route management based on Docker container labels. It monitors Docker events and continuously syncs tunnel ingress rules and DNS CNAME records.
+
+> **Important**: This tool assumes the Cloudflare Tunnel connector (`cloudflared`) and the target containers share a network or have direct IP connectivity. `zero-tunnel` manages routing logic only – not Docker network topology.
+
+---
+
+## Table of Contents
+
+- [Specification: zero-tunnel](#specification-zero-tunnel)
+  - [Table of Contents](#table-of-contents)
+  - [1. Objectives](#1-objectives)
+  - [2. Core Components](#2-core-components)
+    - [2.1 Watcher (Docker)](#21-watcher-docker)
+    - [2.2 Provider (Cloudflare)](#22-provider-cloudflare)
+    - [2.3 Engine](#23-engine)
+  - [3. Configuration \& Labels](#3-configuration--labels)
+    - [3.1 Global Configuration](#31-global-configuration)
+    - [3.2 Docker Labels](#32-docker-labels)
+    - [3.3 Path Matching](#33-path-matching)
+    - [3.4 Ephemeral DNS Cleanup](#34-ephemeral-dns-cleanup)
+  - [4. Technical Implementation](#4-technical-implementation)
+    - [4.1 Concurrency Model](#41-concurrency-model)
+    - [4.2 Workflow](#42-workflow)
+    - [4.3 Cloudflare Ingress Rules](#43-cloudflare-ingress-rules)
+  - [5. Future Work](#5-future-work)
+
+---
 
 ## 1. Objectives
 
-- **Automated Routing**: Automatically expose Docker services via Cloudflare Tunnels using labels.
-- **Dynamic Configuration**: Update tunnel ingress rules in real-time when containers start or stop.
-- **DNS Management**: Automatically create and remove CNAME records pointing to the Cloudflare Tunnel.
-- **Ease of Use**: Minimal configuration required; most settings are derived from container metadata.
+- **Automated Routing** – Expose Docker services via Cloudflare Tunnels using only labels.
+- **Dynamic Configuration** – Update tunnel ingress rules in real-time when containers start or stop.
+- **DNS Management** – Automatically create and remove CNAME records pointing to the Cloudflare Tunnel.
+- **Ease of Use** – Minimal configuration; most settings derived from container metadata.
+
+---
 
 ## 2. Core Components
 
 ### 2.1 Watcher (Docker)
-- Monitors Docker events (`start`, `stop`, `die`, `destroy`).
-- Periodically polls all running containers (on startup or for reconciliation).
-- Extracts configuration from labels.
+- Monitors Docker events: `start`, `stop`, `die`, `destroy`.
+- Periodically polls all running containers (on startup and for reconciliation).
+- Extracts configuration from container labels.
 
 ### 2.2 Provider (Cloudflare)
 - Interacts with Cloudflare API v4 (via `cloudflare-go/v6`).
-- Updates **Remotely Managed Tunnels** configuration (Ingress Rules).
-- Manages DNS CNAME records for the configured hostnames.
-- *Note: MVP focuses on managing routes for an existing tunnel.*
+- Updates **Remotely Managed Tunnel** configuration (Ingress Rules).
+- Manages DNS CNAME records for configured hostnames.
+- *MVP scope*: manage routes for an existing tunnel only.
 
 ### 2.3 Engine
-- Orchestrates the flow between Watcher and Provider.
-- Manages state to ensure the tunnel configuration is consistent.
-- Handles concurrency and rate-limiting for API calls.
+- Orchestrates Watcher and Provider.
+- Maintains internal state to ensure tunnel configuration consistency.
+- Handles concurrency and API rate limiting.
+
+---
 
 ## 3. Configuration & Labels
 
-### 3.1 Global Configuration (Viper)
-Configurable via environment variables or a config file:
-- `CLOUDFLARE_API_TOKEN`: API Token with the following permissions:
-    - **Account / Cloudflare Tunnel**: `Edit`
-    - **Account / Account Settings**: `Read`
-    - **Zone / DNS**: `Edit`
-    - **Zone / Zone**: `Read`
-- `CLOUDFLARE_ACCOUNT_ID`: Cloudflare Account ID.
-- `CLOUDFLARE_TUNNEL_ID`: The UUID of the existing tunnel (mutually exclusive with `NAME`).
-- `CLOUDFLARE_TUNNEL_NAME`: The Name of the existing tunnel (mutually exclusive with `ID`).
-- `ZERO_TUNNEL_DEFAULT_DOMAIN`: (Optional) Default domain if not specified in labels.
-- `ZERO_TUNNEL_INTERVAL`: (Optional) Reconciliation interval (default: 300s).
+### 3.1 Global Configuration
+
+All options can be set via environment variables or a config file (using Viper).
+
+| Environment Variable | Required | Description |
+|----------------------|----------|-------------|
+| `CLOUDFLARE_API_TOKEN` | ✅ | API token with permissions: Tunnel:Edit, Account:Read, DNS:Edit, Zone:Read. |
+| `CLOUDFLARE_ACCOUNT_ID` | ✅ | Cloudflare Account ID. |
+| `CLOUDFLARE_TUNNEL_ID` | ⚠️ | UUID of existing tunnel (mutually exclusive with `NAME`). |
+| `CLOUDFLARE_TUNNEL_NAME` | ⚠️ | Name of existing tunnel (mutually exclusive with `ID`). |
+| `ZERO_TUNNEL_DEFAULT_DOMAIN` | ❌ | Fallback domain if label missing. |
+| `ZERO_TUNNEL_INTERVAL` | ❌ | Reconciliation interval (default: `300s`). |
 
 ### 3.2 Docker Labels
-| Label | Description | Example |
-|-------|-------------|---------|
-| `zero-tunnel.enable` | Must be `true` for the container to be processed. | `true` |
-| `zero-tunnel.name` | (Optional) Overrides the target service name in the Cloudflare service URL. Default: `<host-hostname>-<container-name>`. | `my-server-gallery` |
-| `zero-tunnel.subdomain` | The subdomain to use. | `gallery` |
-| `zero-tunnel.domain` | The root domain. | `aspian.my.id` |
-| `zero-tunnel.port` | Internal port of the container. | `8080` |
-| `zero-tunnel.scheme` | Protocol to use (`http`, `https`, `tcp`). | `http` |
-| `zero-tunnel.path` | (Optional) Path for the ingress rule. | `/api` |
-| `zero-tunnel.ephemeral` | (Optional) If `true`, DNS is deleted when container stops. Default: `true`. | `true` |
+
+| Label | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `zero-tunnel.enable` | ✅ | – | Must be `true` to process this container. |
+| `zero-tunnel.subdomain` | ✅ | – | Subdomain for the route. |
+| `zero-tunnel.domain` | ❌ | `ZERO_TUNNEL_DEFAULT_DOMAIN` | Root domain. |
+| `zero-tunnel.port` | ✅ | – | Internal container port. |
+| `zero-tunnel.name` | ❌ | `<host-hostname>-<container-name>` | Target service name used in the tunnel URL. |
+| `zero-tunnel.scheme` | ❌ | `http` | Protocol: `http`, `https`, or `tcp`. |
+| `zero-tunnel.path` | ❌ | (empty → matches all) | Regex for path matching. |
+| `zero-tunnel.ephemeral` | ❌ | `true` | If `true`, DNS record is deleted when container stops. |
 
 ### 3.3 Path Matching
-The `zero-tunnel.path` field supports regex patterns as defined by Cloudflare Tunnel ingress rules:
-- **Match all paths**: Leave the label empty or omit it.
-- **Match anywhere in path**: `blog` (matches `/blog`, `/archive/blog/post`, etc.)
-- **Match path prefix**: `^/api`
-- **Match files by extension**: `\.(jpg|png|css|js)$`
 
-### 3.4 Ephemeral DNS (Cleanup)
-`zero-tunnel` manages the lifecycle of DNS records it creates, following an ephemeral-by-default pattern:
-- **Default Behavior**: All managed routes are ephemeral. When a container stops or is removed, its associated DNS record is deleted.
-- **Identification**: Every DNS record created or updated by the tool includes the comment `managed-by:zero-tunnel`.
-- **Label Control**: Users can set `zero-tunnel.ephemeral=false` to keep the DNS record even if the container is offline.
-- **Automatic Removal**: During each synchronization cycle (Startup and Reconciliation), the tool identifies DNS records containing the `managed-by:zero-tunnel` comment that no longer have a corresponding active container (and are marked as ephemeral). These orphaned records are automatically deleted from Cloudflare.
+Uses Cloudflare Tunnel ingress regex syntax:
+
+- **Empty / omitted** → matches all paths.
+- `blog` → matches any path containing `blog` (e.g., `/blog`, `/archive/blog/post`).
+- `^/api` → matches paths starting with `/api`.
+- `\.(jpg\|png\|css\|js)$` → matches file extensions.
+
+### 3.4 Ephemeral DNS Cleanup
+
+- **Default**: All managed routes are ephemeral. When a container stops, its associated DNS record is deleted.
+- **Identification**: Every DNS record created/updated by zero-tunnel includes the comment `managed-by:zero-tunnel`.
+- **Override**: Set `zero-tunnel.ephemeral=false` to keep the DNS record even when the container is offline.
+- **Cleanup**: During startup and each reconciliation cycle, zero-tunnel deletes orphaned DNS records (ones with the `managed-by:zero-tunnel` comment that have no corresponding active ephemeral container).
+
+---
 
 ## 4. Technical Implementation
 
 ### 4.1 Concurrency Model
-- Use a single worker or a serialized queue to update Cloudflare configuration to avoid race conditions (Cloudflare Tunnel config is a single blob that must be replaced entirely).
-- Use `context.Context` for graceful shutdown and request cancellation.
-- Use `slog` for structured logging.
+
+- **Serialized Updates**: A single worker/queue processes Cloudflare updates because the tunnel configuration is a single blob that must be replaced atomically.
+- **Cancellation**: Uses `context.Context` for graceful shutdown and request cancellation.
+- **Logging**: Structured logging with `slog`.
 
 ### 4.2 Workflow
-1. **Startup**:
-   - List all containers and build an initial routing map.
-   - Sync the routing map with Cloudflare (Update Ingress + Ensure DNS).
-2. **Event Loop**:
-   - On `start`: Add/Update route for the container.
-   - On `die`/`stop`: Mark route for removal.
-   - Debounce updates to avoid multiple API calls during a `docker-compose up` sequence.
-3. **Reconciliation**:
-   - Periodically check if the current Cloudflare configuration matches the desired state.
+
+1. **Startup**
+   - List all running containers.
+   - Build initial routing map.
+   - Sync with Cloudflare: update ingress rules + ensure DNS records.
+
+2. **Event Loop**
+   - On `start` → add/update route for the container.
+   - On `die`/`stop` → mark route for removal.
+   - **Debounce**: Batch events (e.g., during `docker-compose up`) to avoid excessive API calls.
+
+3. **Reconciliation** (periodic)
+   - Check if current Cloudflare configuration matches desired state.
+   - Clean up orphaned ephemeral DNS records.
 
 ### 4.3 Cloudflare Ingress Rules
-The tool will maintain the ingress list:
-1. Container-specific rules (e.g., `idk.aspian.my.id -> http://<host-hostname>-<container-name>:8080`).
-2. A mandatory catch-all rule at the end (`http_status:404`).
+
+The tool maintains an ingress list with the following structure:
+
+```
+1. Container-specific rules (e.g., myapp.example.com → http://container-name:8080)
+2. ... (more container rules)
+3. Catch-all rule: http_status:404
+```
+
+The catch-all rule is mandatory and always placed at the end.
+
+---
 
 ## 5. Future Work
-- **Automated Tunnel Provisioning**: Automatically create a new tunnel if neither ID nor Name is provided.
-- **Local Configuration Provider**: Support for writing to `config.yaml` for locally managed tunnels.
-- **Multiple Tunnels**: Ability to distribute routes across multiple Cloudflare Tunnels based on labels.
 
-## 6. References
-- [Watchtower](https://github.com/containrrr/watchtower) for Docker event monitoring patterns.
-- [Cloudflare Go SDK v6](https://github.com/cloudflare/cloudflare-go) for API interactions.
+- **Automated Tunnel Provisioning** – Create a new tunnel if neither ID nor Name is provided.
+- **Local Configuration Provider** – Support writing to `config.yaml` for locally managed tunnels.
+- **Multiple Tunnels** – Distribute routes across multiple Cloudflare Tunnels based on labels.
+
+---
