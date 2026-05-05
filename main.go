@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,7 +14,30 @@ import (
 	"github.com/aspiand/zero-tunnel/internal/watcher"
 )
 
+var (
+	Version   = "(dev)"
+	Commit    = "(dev)"
+	BuildDate = "(dev)"
+)
+
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "version", "--version", "-v":
+			fmt.Printf("zero-tunnel %s\n", Version)
+			fmt.Printf("commit: %s\n", Commit)
+			fmt.Printf("build date: %s\n", BuildDate)
+			return
+		}
+	}
+
+	slog.Info(
+		"starting zero-tunnel",
+		"version", Version,
+		"commit", Commit,
+		"build_date", BuildDate,
+	)
+
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load configuration", "error", err)

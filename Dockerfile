@@ -6,7 +6,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o /zero-tunnel .
+
+ARG VERSION="(dev)"
+ARG COMMIT="(dev)"
+ARG DATE="(dev)"
+
+RUN go build -ldflags "-s -w -X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildDate=${DATE}" -o /zero-tunnel .
 
 FROM alpine:latest
 

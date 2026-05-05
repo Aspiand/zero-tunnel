@@ -4,21 +4,25 @@ services:
     image: ghcr.io/aspiand/zero-tunnel
     build: .
     restart: unless-stopped
+    env_file: .env
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    env_file: .env
 
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
     command: tunnel run
+    networks:
+      - default
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
 
   nginx-test:
     image: nginx:alpine
     container_name: nginx-test
+    networks:
+      - default
     labels:
       zero-tunnel.enable: true
       zero-tunnel.subdomain: nginx
