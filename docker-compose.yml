@@ -18,7 +18,7 @@ services:
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
 
-  nginx-test:
+  nginx:
     image: nginx:alpine
     container_name: nginx-test
     networks:
