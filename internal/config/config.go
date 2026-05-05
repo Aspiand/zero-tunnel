@@ -35,7 +35,9 @@ func (c *Config) Validate() error {
 func Load() (*Config, error) {
 	viper.SetDefault("ZERO_TUNNEL_INTERVAL", 300*time.Second)
 
+	viper.SetConfigFile(".env")
 	viper.AutomaticEnv()
+	_ = viper.ReadInConfig()
 
 	_ = viper.BindEnv("CLOUDFLARE_API_TOKEN")
 	_ = viper.BindEnv("CLOUDFLARE_ACCOUNT_ID")

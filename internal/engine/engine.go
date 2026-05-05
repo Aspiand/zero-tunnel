@@ -35,7 +35,6 @@ func New(w *watcher.Watcher, p *provider.CloudflareProvider, interval time.Durat
 }
 
 func (e *Engine) Run(ctx context.Context) error {
-	slog.Info("starting zero-tunnel engine")
 
 	go e.syncWorker(ctx)
 
