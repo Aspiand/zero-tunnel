@@ -9,22 +9,24 @@ This skill enforces a "Spec First" workflow. Every major decision or feature mus
 
 ## Workflow
 
-1.  **Discuss**: When a new feature or change is requested, discuss the technical approach with the user.
-2.  **Confirm**: Explicitly ask for confirmation of the proposed strategy.
-3.  **Update Specs**: Once confirmed, update `SPECS.md` to reflect the decision. This ensures the specification remains the "single source of truth".
-4.  **Implement**: Only after the spec is updated, proceed with the implementation.
-5.  **Validate**: Ensure the implementation matches the updated specification.
+1.  **Analyze & Discuss**: Identify the impact of the request on the system architecture.
+2.  **Confirm**: Ask for explicit confirmation of the proposed strategy.
+3.  **Update SPECS.md**: `SPECS.md` remains the "Single Source of Truth".
+4.  **Implement**: Write code that adheres strictly to the specification.
+5.  **Validate**: Verify that the implementation matches the specification document.
 
-## Rules for SPECS.md
+## Core Rules
 
--   **Single Source of Truth**: `SPECS.md` must always reflect the current intended state of the project.
--   **Incremental Updates**: Do not overwrite the entire spec unless necessary. Add or modify sections surgically.
--   **Clarity**: Use clear, concise language and structured formatting (tables, lists, headings).
--   **History**: If significant changes are made to previous decisions, note them or update the relevant sections to keep the document current.
+-   **Spec-First**: Never write code for new features without updating `SPECS.md` first.
+-   **Consistency**: Maintain a clean, structured, and professional format in `SPECS.md`.
+-   **Traceability**: Every feature must be traceable from the specification to the code implementation.
+
+## References
+- [Detailed Workflow](./references/workflow.md)
 
 ## Triggering
 
 Use this skill whenever:
--   A new feature is proposed.
--   Architectural decisions are being made (e.g., choosing between API vs. File-based management).
--   The user says "update the specs" or "add this to the spec".
+- A new feature is proposed.
+- Architectural decisions are being made (e.g., choosing between API vs. File-based management).
+- The user says "update the specs" or "add this to the spec".
