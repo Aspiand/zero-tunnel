@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - dev
     tags:
       - 'v*'
 
@@ -38,10 +37,9 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=ref,event=branch,branch=main,value=main
-            type=ref,event=branch,branch=dev,value=dev
+            type=ref,event=branch,branch=main
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=latest,enable=true
 
       - name: Build and Push
         uses: docker/build-push-action@v5

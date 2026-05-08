@@ -19,7 +19,7 @@ jobs:
       - name: Run Tests
         shell: bash
         run: |
-          if [[ "${{ github.ref_name }}" == "main" || "${{ github.ref_name }}" == "dev" || "${{ github.base_ref }}" == "main" || "${{ github.base_ref }}" == "dev" ]]; then
+          if [[ "${{ github.ref_name }}" == "main" || "${{ github.base_ref }}" == "main" ]]; then
             go test -v ./...
           else
             go test -v -short ./...

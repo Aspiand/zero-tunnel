@@ -1,7 +1,7 @@
 services:
   zero-tunnel:
     container_name: zero-tunnel
-    image: ghcr.io/aspiand/zero-tunnel
+    image: ghcr.io/aspiand/zero-tunnel:latest
     build: .
     restart: unless-stopped
     env_file: .env
